@@ -4,6 +4,7 @@ import cloudinary.uploader
 from flask import Blueprint, request, jsonify, session, redirect, url_for
 from config import Config
 from functools import wraps
+import traceback
 
 upload_bp = Blueprint('upload', __name__)
 
@@ -42,13 +43,24 @@ def upload_image():
 
         # Check if Cloudinary is configured
         if not Config.CLOUDINARY_CLOUD_NAME or not Config.CLOUDINARY_API_KEY:
-            return jsonify({'success': False, 'message': 'Cloudinary belum dikonfigurasi'}), 500
+            print("⚠️  Cloudinary not configured - returning placeholder URL")
+            return jsonify({
+                'success': True,
+                'url': 'https://via.placeholder.com/400',
+                'public_id': 'placeholder',
+                'message': 'Cloudinary tidak dikonfigurasi - menggunakan placeholder'
+            })
 
+        print(f"📤 Uploading file: {file.filename}")
+        
         result = cloudinary.uploader.upload(
             file,
             folder='portofolio',
             resource_type='image'
         )
+        
+        print(f"✅ File uploaded successfully: {result['secure_url']}")
+        
         return jsonify({
             'success': True,
             'url': result['secure_url'],
@@ -57,4 +69,5 @@ def upload_image():
         })
     except Exception as e:
         print(f'❌ Upload error: {str(e)}')
+        traceback.print_exc()
         return jsonify({'success': False, 'message': f'Upload gagal: {str(e)}'}), 500
