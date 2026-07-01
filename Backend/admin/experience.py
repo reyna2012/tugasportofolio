@@ -33,11 +33,14 @@ def get_experiences():
             with conn.cursor() as cur:
                 cur.execute("SELECT * FROM experiences ORDER BY is_current DESC, id DESC")
                 data = cur.fetchall()
+            print(f"✅ Experiences fetched: {len(data)} records")
             return jsonify({'success': True, 'data': data if data else []})
         finally:
             conn.close()
     except Exception as e:
         print(f"❌ Error in get_experiences: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e), 'data': []}), 500
 
 
@@ -46,6 +49,8 @@ def get_experiences():
 def create_experience():
     try:
         data = request.get_json(silent=True) or {}
+        print(f"📝 Creating experience: {data.get('company')}")
+        
         conn = get_db()
         try:
             with conn.cursor() as cur:
@@ -54,14 +59,20 @@ def create_experience():
                     VALUES (%s,%s,%s,%s,%s,%s,%s)
                 """, (data.get('company'), data.get('position'), data.get('start_date'),
                       data.get('end_date'), data.get('is_current', 0), data.get('description'), data.get('logo_url')))
+                conn.commit()  # Commit after insert
                 cur.execute("SELECT * FROM experiences ORDER BY id DESC LIMIT 1")
                 saved = cur.fetchone()
-            conn.commit()
+            print(f"✅ Experience created")
             return jsonify({'success': True, 'message': 'Pengalaman berhasil ditambahkan', 'data': saved})
+        except Exception as e:
+            conn.rollback()
+            raise e
         finally:
             conn.close()
     except Exception as e:
         print(f"❌ Error in create_experience: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
 
 
@@ -70,6 +81,8 @@ def create_experience():
 def update_experience(eid):
     try:
         data = request.get_json(silent=True) or {}
+        print(f"📝 Updating experience {eid}")
+        
         conn = get_db()
         try:
             with conn.cursor() as cur:
@@ -79,12 +92,18 @@ def update_experience(eid):
                 """, (data.get('company'), data.get('position'), data.get('start_date'),
                       data.get('end_date'), data.get('is_current', 0), data.get('description'),
                       data.get('logo_url'), eid))
-            conn.commit()
+            conn.commit()  # Commit after update
+            print(f"✅ Experience updated")
             return jsonify({'success': True, 'message': 'Pengalaman berhasil diupdate'})
+        except Exception as e:
+            conn.rollback()
+            raise e
         finally:
             conn.close()
     except Exception as e:
         print(f"❌ Error in update_experience: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
 
 
@@ -92,14 +111,21 @@ def update_experience(eid):
 @login_required
 def delete_experience(eid):
     try:
+        print(f"🗑️  Deleting experience {eid}")
         conn = get_db()
         try:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM experiences WHERE id=%s", (eid,))
-            conn.commit()
+            conn.commit()  # Commit after delete
+            print(f"✅ Experience deleted")
             return jsonify({'success': True, 'message': 'Pengalaman berhasil dihapus'})
+        except Exception as e:
+            conn.rollback()
+            raise e
         finally:
             conn.close()
     except Exception as e:
         print(f"❌ Error in delete_experience: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
