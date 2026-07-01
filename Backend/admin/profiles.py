@@ -33,11 +33,14 @@ def get_profiles():
             with conn.cursor() as cur:
                 cur.execute("SELECT * FROM profiles")
                 data = cur.fetchall()
+            print(f"✅ Profiles fetched: {len(data)} records")
             return jsonify({'success': True, 'data': data if data else []})
         finally:
             conn.close()
     except Exception as e:
         print(f"❌ Error in get_profiles: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e), 'data': []}), 500
 
 
@@ -49,6 +52,8 @@ def create_profile():
         if not data.get('name'):
             return jsonify({'success': False, 'message': 'Nama wajib diisi'}), 400
         
+        print(f"📝 Creating profile: {data.get('name')}")
+        
         conn = get_db()
         try:
             with conn.cursor() as cur:
@@ -58,14 +63,20 @@ def create_profile():
                 """, (data.get('name'), data.get('title'), data.get('bio'),
                       data.get('email'), data.get('phone'), data.get('location'),
                       data.get('github'), data.get('linkedin'), data.get('instagram'), data.get('photo_url')))
+                conn.commit()  # Commit setelah insert
                 cur.execute("SELECT * FROM profiles ORDER BY id DESC LIMIT 1")
                 saved = cur.fetchone()
-            conn.commit()
+            print(f"✅ Profile created: {saved}")
             return jsonify({'success': True, 'message': 'Profil berhasil ditambahkan', 'data': saved})
+        except Exception as e:
+            conn.rollback()
+            raise e
         finally:
             conn.close()
     except Exception as e:
         print(f'❌ Error in create_profile: {str(e)}')
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
 
 
@@ -77,6 +88,8 @@ def update_profile(pid):
         if not data.get('name'):
             return jsonify({'success': False, 'message': 'Nama wajib diisi'}), 400
         
+        print(f"📝 Updating profile {pid}: {data.get('name')}")
+        
         conn = get_db()
         try:
             with conn.cursor() as cur:
@@ -86,16 +99,22 @@ def update_profile(pid):
                 """, (data.get('name'), data.get('title'), data.get('bio'),
                       data.get('email'), data.get('phone'), data.get('location'),
                       data.get('github'), data.get('linkedin'), data.get('instagram'), data.get('photo_url'), pid))
+                conn.commit()  # Commit setelah update
                 cur.execute("SELECT * FROM profiles WHERE id=%s", (pid,))
                 saved = cur.fetchone()
-            conn.commit()
             if not saved:
                 return jsonify({'success': False, 'message': 'Profil tidak ditemukan'}), 404
+            print(f"✅ Profile updated: {saved}")
             return jsonify({'success': True, 'message': 'Profil berhasil diupdate', 'data': saved})
+        except Exception as e:
+            conn.rollback()
+            raise e
         finally:
             conn.close()
     except Exception as e:
         print(f'❌ Error in update_profile: {str(e)}')
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
 
 
@@ -103,14 +122,21 @@ def update_profile(pid):
 @login_required
 def delete_profile(pid):
     try:
+        print(f"🗑️  Deleting profile {pid}")
         conn = get_db()
         try:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM profiles WHERE id=%s", (pid,))
-            conn.commit()
+            conn.commit()  # Commit setelah delete
+            print(f"✅ Profile deleted")
             return jsonify({'success': True, 'message': 'Profil berhasil dihapus'})
+        except Exception as e:
+            conn.rollback()
+            raise e
         finally:
             conn.close()
     except Exception as e:
         print(f'❌ Error in delete_profile: {str(e)}')
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
