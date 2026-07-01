@@ -31,6 +31,8 @@ def send_contact():
         if not name or not email or not message:
             return jsonify({'success': False, 'message': 'Nama, email, dan pesan wajib diisi'}), 400
 
+        print(f"📧 Saving contact from {name} ({email})")
+
         # Save to database
         conn = get_db()
         try:
@@ -39,7 +41,11 @@ def send_contact():
                     INSERT INTO contacts (name, email, subject, message)
                     VALUES (%s, %s, %s, %s)
                 """, (name, email, subject, message))
-            conn.commit()
+            conn.commit()  # Commit setelah insert
+            print(f"✅ Contact saved to database")
+        except Exception as e:
+            conn.rollback()
+            raise e
         finally:
             conn.close()
 
@@ -67,13 +73,16 @@ def send_contact():
                     </div>
                     """
                 })
+                print(f"✅ Email sent via Resend")
         except Exception as e:
-            print(f"⚠️  Email send error: {e}")
-            return jsonify({'success': True, 'message': 'Pesan tersimpan (email gagal terkirim)'})
+            print(f"⚠️  Email send error (non-critical): {e}")
+            # Don't fail the request if email fails
 
         return jsonify({'success': True, 'message': 'Pesan berhasil dikirim!'})
     except Exception as e:
         print(f"❌ Error in send_contact: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
 
 
@@ -99,12 +108,15 @@ def get_contacts():
                 data = cur.fetchall()
                 # Mark all as read
                 cur.execute("UPDATE contacts SET is_read = 1")
-            conn.commit()
+            conn.commit()  # Commit setelah update
+            print(f"✅ Contacts fetched: {len(data)} records")
             return jsonify({'success': True, 'data': data if data else []})
         finally:
             conn.close()
     except Exception as e:
         print(f"❌ Error in get_contacts: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e), 'data': []}), 500
 
 
@@ -112,14 +124,21 @@ def get_contacts():
 @login_required
 def delete_contact(cid):
     try:
+        print(f"🗑️  Deleting contact {cid}")
         conn = get_db()
         try:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM contacts WHERE id=%s", (cid,))
-            conn.commit()
+            conn.commit()  # Commit setelah delete
+            print(f"✅ Contact deleted")
             return jsonify({'success': True, 'message': 'Pesan berhasil dihapus'})
+        except Exception as e:
+            conn.rollback()
+            raise e
         finally:
             conn.close()
     except Exception as e:
         print(f"❌ Error in delete_contact: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': f'Error: {str(e)}'}), 500
