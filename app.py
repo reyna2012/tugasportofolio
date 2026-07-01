@@ -17,7 +17,7 @@ except Exception as e:
 
 # Load model functions
 try:
-    from model import get_profiles, get_skills, get_projects, get_experience
+    from model import get_profiles, get_skills, get_projects, get_experience, init_db
     print("✅ Model functions loaded")
 except Exception as e:
     print(f"❌ Error loading model: {e}")
@@ -47,6 +47,7 @@ except Exception as e:
     raise
 
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB limit untuk upload
+app.config['SESSION_TYPE'] = 'filesystem'
 app.secret_key = Config.SECRET_KEY
 
 @app.route('/health')
@@ -64,10 +65,10 @@ def health():
 @app.route("/")
 def home():
     try:
-        profiles    = get_profiles() if get_profiles() else []
-        skills      = get_skills() if get_skills() else []
-        projects    = get_projects() if get_projects() else []
-        experience  = get_experience() if get_experience() else []
+        profiles    = get_profiles() or []
+        skills      = get_skills() or []
+        projects    = get_projects() or []
+        experience  = get_experience() or []
         return render_template("index.html",
             profiles=profiles,
             skills=skills,
@@ -76,12 +77,14 @@ def home():
         )
     except Exception as e:
         print(f"❌ Error in home route: {e}")
+        import traceback
+        traceback.print_exc()
         return render_template("index.html",
             profiles=[],
             skills=[],
             projects=[],
             experience=[]
-        ), 200  # Return 200 even if there's an error to avoid 500
+        ), 200
 
 # Register blueprints untuk admin
 print("📦 Loading blueprints...")
@@ -187,14 +190,14 @@ def init_db_on_startup():
         _db_init_attempted = True
         try:
             print("🔧 Attempting database initialization...")
-            from model import init_db
             init_db()
             _db_initialized = True
-            print("✅ Database tables initialized.")
+            print("✅ Database tables initialized successfully.")
         except Exception as e:
-            print(f"⚠️  Database init error (non-critical): {e}")
-            # Don't raise - let the app continue even if DB init fails
-            _db_initialized = False
+            print(f"⚠️  Database init error (will retry): {e}")
+            import traceback
+            traceback.print_exc()
+            _db_init_attempted = False  # Reset so it retries on next request
 
 # Global error handlers
 @app.errorhandler(404)
@@ -204,6 +207,8 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     print(f"❌ Internal server error: {error}")
+    import traceback
+    traceback.print_exc()
     return {"error": "Internal server error"}, 500
 
 application = app
@@ -211,11 +216,12 @@ print("✅ Flask app fully initialized and ready")
 
 if __name__ == '__main__':
     try:
-        from model import init_db
+        print("🔧 Initializing database...")
         init_db()
         print("✅ Database tables initialized.")
     except Exception as e:
         print(f"⚠️  Database init error: {e}")
+        import traceback
+        traceback.print_exc()
 
     app.run(debug=True, host='0.0.0.0', port=5000)
-
